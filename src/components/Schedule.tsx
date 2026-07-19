@@ -15,16 +15,21 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
+  CheckSquare,
+  Square,
+  X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { NewScheduleModal } from './NewScheduleModal';
 import { ScheduleGeneratorModal } from './ScheduleGeneratorModal';
 import { Schedule as ScheduleType, ScheduleStatusType } from '../types';
 
 export const Schedule: React.FC = () => {
-  const { schedules, deleteSchedule, duplicateSchedule, pauseSchedule, openWhatsApp, askConfirmation } = useApp();
+  const { schedules, deleteSchedule, duplicateSchedule, pauseSchedule, openWhatsApp, askConfirmation, bulkUpdateSchedules, bulkDeleteSchedules } = useApp();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'today' | 'tomorrow' | 'week' | 'pending' | 'need_reply' | 'failed'>('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modals state
   const [isNewOpen, setIsNewOpen] = useState(false);
@@ -129,7 +134,68 @@ export const Schedule: React.FC = () => {
       confirmText: 'Ya, Hapus',
       cancelText: 'Batal',
       type: 'danger',
-      onConfirm: () => deleteSchedule(id),
+      onConfirm: () => {
+        deleteSchedule(id);
+        setSelectedIds(prev => prev.filter(sid => sid !== id));
+      },
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredSchedules.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredSchedules.map(s => s.id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkPause = () => {
+    askConfirmation({
+      title: 'Pause/Resume Terpilih',
+      message: `Apakah Anda yakin ingin memproses ${selectedIds.length} jadwal terpilih?`,
+      onConfirm: () => {
+        // Find which ones to pause vs resume based on first one or just toggle?
+        // Usually bulk actions set a specific state. Let's set them all to 'Failed' (Paused)
+        bulkUpdateSchedules(selectedIds, { status: 'Failed' });
+        setSelectedIds([]);
+      }
+    });
+  };
+
+  const handleBulkResume = () => {
+    bulkUpdateSchedules(selectedIds, { status: 'Pending' });
+    setSelectedIds([]);
+  };
+
+  const handleBulkStop = () => {
+    askConfirmation({
+      title: 'Stop Jadwal Terpilih',
+      message: `Apakah Anda yakin ingin menghentikan ${selectedIds.length} jadwal terpilih? Ini akan menandai mereka sebagai Failed.`,
+      confirmText: 'Ya, Stop',
+      type: 'warning',
+      onConfirm: () => {
+        bulkUpdateSchedules(selectedIds, { status: 'Failed' });
+        setSelectedIds([]);
+      }
+    });
+  };
+
+  const handleBulkDelete = () => {
+    askConfirmation({
+      title: 'Hapus Terpilih',
+      message: `Apakah Anda yakin ingin menghapus ${selectedIds.length} jadwal terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus',
+      type: 'danger',
+      onConfirm: () => {
+        bulkDeleteSchedules(selectedIds);
+        setSelectedIds([]);
+      }
     });
   };
 
@@ -218,17 +284,23 @@ export const Schedule: React.FC = () => {
             filteredSchedules.map((item) => (
               <div
                 key={item.id}
-                className="bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800/80 rounded-xl p-3 shadow-xs space-y-2.5 relative"
+                onClick={() => handleToggleSelect(item.id)}
+                className={`bg-white dark:bg-zinc-900 border ${selectedIds.includes(item.id) ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-gray-150 dark:border-zinc-800/80'} rounded-xl p-3 shadow-xs space-y-2.5 relative transition-all`}
               >
                 {/* Header row: Time & Status */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold font-mono text-gray-600 dark:text-zinc-300 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                      {item.time}
-                    </span>
-                    <span className="text-[9px] font-mono text-gray-400 dark:text-zinc-500">
-                      {item.date}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="text-emerald-500">
+                      {selectedIds.includes(item.id) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-gray-300 dark:text-zinc-700" />}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold font-mono text-gray-600 dark:text-zinc-300 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                        {item.time}
+                      </span>
+                      <span className="text-[9px] font-mono text-gray-400 dark:text-zinc-500">
+                        {item.date}
+                      </span>
+                    </div>
                   </div>
                   <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${getStatusBadgeClass(item.status)}`}>
                     {getStatusIcon(item.status)}
@@ -333,6 +405,19 @@ export const Schedule: React.FC = () => {
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/30 text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">
+                <th className="py-2.5 px-3 w-[40px]">
+                  <button 
+                    onClick={handleSelectAll}
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors cursor-pointer text-gray-400 hover:text-emerald-500"
+                  >
+                    {selectedIds.length === filteredSchedules.length && filteredSchedules.length > 0 
+                      ? <CheckSquare className="h-4 w-4 text-emerald-500" /> 
+                      : selectedIds.length > 0 
+                        ? <div className="h-4 w-4 bg-emerald-500 rounded-sm flex items-center justify-center"><div className="w-2 h-0.5 bg-white"></div></div>
+                        : <Square className="h-4 w-4" />
+                    }
+                  </button>
+                </th>
                 <th className="py-2.5 px-3 w-[100px]">Waktu</th>
                 <th className="py-2.5 px-3">Customer</th>
                 <th className="py-2.5 px-3">Nomor WA</th>
@@ -345,7 +430,7 @@ export const Schedule: React.FC = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-xs">
               {filteredSchedules.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400 dark:text-zinc-500">
+                  <td colSpan={8} className="py-12 text-center text-gray-400 dark:text-zinc-500">
                     <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     Belum ada jadwal follow up yang cocok dengan filter / pencarian.
                   </td>
@@ -354,8 +439,18 @@ export const Schedule: React.FC = () => {
                 filteredSchedules.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/20 transition-colors group"
+                    onClick={() => handleToggleSelect(item.id)}
+                    className={`hover:bg-gray-50/50 dark:hover:bg-zinc-800/20 transition-colors group cursor-pointer ${selectedIds.includes(item.id) ? 'bg-emerald-50/30 dark:bg-emerald-950/10' : ''}`}
                   >
+                    {/* Checkbox */}
+                    <td className="py-2 px-3">
+                      <div className="flex items-center justify-center">
+                        {selectedIds.includes(item.id) 
+                          ? <CheckSquare className="h-4 w-4 text-emerald-500" /> 
+                          : <Square className="h-4 w-4 text-gray-200 dark:text-zinc-800 group-hover:text-gray-300 dark:group-hover:text-zinc-700" />
+                        }
+                      </div>
+                    </td>
                     {/* Time / Date */}
                     <td className="py-2 px-3 whitespace-nowrap">
                       <div className="font-semibold text-gray-900 dark:text-zinc-200 font-mono">
@@ -497,6 +592,62 @@ export const Schedule: React.FC = () => {
         isOpen={isGenOpen}
         onClose={() => setIsGenOpen(false)}
       />
+
+      {/* Bulk Action Toolbar */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4"
+          >
+            <div className="bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl shadow-2xl border border-zinc-700/50 p-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 pl-2">
+                <button 
+                  onClick={() => setSelectedIds([])}
+                  className="p-1 hover:bg-zinc-800 rounded-full transition-colors"
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold leading-none">{selectedIds.length} Terpilih</span>
+                  <span className="text-[10px] text-gray-400">Pilih tindakan untuk massal</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleBulkResume}
+                  className="flex flex-col items-center gap-1 px-3 py-1.5 hover:bg-zinc-800 rounded-xl transition-colors group"
+                  title="Resume Semua"
+                >
+                  <Play className="h-4 w-4 text-emerald-500" />
+                  <span className="text-[9px] font-bold text-gray-400 group-hover:text-white">Resume</span>
+                </button>
+                
+                <button
+                  onClick={handleBulkPause}
+                  className="flex flex-col items-center gap-1 px-3 py-1.5 hover:bg-zinc-800 rounded-xl transition-colors group"
+                  title="Pause Semua"
+                >
+                  <Pause className="h-4 w-4 text-amber-500" />
+                  <span className="text-[9px] font-bold text-gray-400 group-hover:text-white">Pause</span>
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex flex-col items-center gap-1 px-3 py-1.5 hover:bg-red-950/30 hover:text-red-400 rounded-xl transition-colors group"
+                  title="Hapus Semua"
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                  <span className="text-[9px] font-bold text-gray-400 group-hover:text-red-400">Hapus</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

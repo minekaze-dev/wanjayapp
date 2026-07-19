@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Search, MessageSquare, ExternalLink, MessageCircle, Inbox as InboxIcon, ArrowLeft } from 'lucide-react';
+import { Search, MessageSquare, ExternalLink, MessageCircle, Inbox as InboxIcon, ArrowLeft, CheckSquare, Square, X, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { InboxItem } from '../types';
 
 export const Inbox: React.FC = () => {
-  const { inbox, schedules, currentUser, openWhatsApp, showToast, markInboxItemAsRead } = useApp();
+  const { inbox, schedules, currentUser, openWhatsApp, showToast, markInboxItemAsRead, bulkDeleteInbox, askConfirmation } = useApp();
   const [search, setSearch] = useState('');
   const [selectedSalesFilter, setSelectedSalesFilter] = useState('all');
   const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Filter based on user role (Sales can only see their own, Admin can see all)
   const userInbox = currentUser?.role === 'Admin'
@@ -45,23 +47,68 @@ export const Inbox: React.FC = () => {
     setSelectedItem(item);
   };
 
+  const handleToggleSelect = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredInbox.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredInbox.map(item => item.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    askConfirmation({
+      title: 'Hapus Pesan Terpilih',
+      message: `Apakah Anda yakin ingin menghapus ${selectedIds.length} pesan terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus',
+      type: 'danger',
+      onConfirm: () => {
+        bulkDeleteInbox(selectedIds);
+        setSelectedIds([]);
+        if (selectedItem && selectedIds.includes(selectedItem.id)) {
+          setSelectedItem(null);
+        }
+      }
+    });
+  };
+
   return (
     <div id="inbox-view" className="flex-1 overflow-hidden flex flex-col md:flex-row bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800">
       {/* Conversations list sidebar */}
       <div className={`w-full md:w-80 shrink-0 border-r border-gray-150 dark:border-zinc-800 flex flex-col overflow-hidden ${selectedItem ? 'hidden md:flex' : 'flex'}`}>
         {/* Search & Filter Header */}
         <div className="p-3 border-b border-gray-100 dark:border-zinc-800 space-y-2">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-              <Search className="h-3.5 w-3.5" />
-            </span>
-            <input
-              type="text"
-              placeholder="Cari percakapan..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:outline-none focus:border-emerald-500"
-            />
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleSelectAll}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors cursor-pointer text-gray-400 hover:text-emerald-500 shrink-0"
+              title="Pilih Semua"
+            >
+              {selectedIds.length === filteredInbox.length && filteredInbox.length > 0 
+                ? <CheckSquare className="h-4 w-4 text-emerald-500" /> 
+                : selectedIds.length > 0 
+                  ? <div className="h-4 w-4 bg-emerald-500 rounded-sm flex items-center justify-center"><div className="w-2 h-0.5 bg-white"></div></div>
+                  : <Square className="h-4 w-4" />
+              }
+            </button>
+            <div className="relative flex-1">
+              <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+                <Search className="h-3.5 w-3.5" />
+              </span>
+              <input
+                type="text"
+                placeholder="Cari percakapan..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
           </div>
 
           {currentUser?.role === 'Admin' && (
@@ -92,57 +139,70 @@ export const Inbox: React.FC = () => {
           ) : (
             filteredInbox.map((item) => {
               const isSelected = selectedItem?.id === item.id;
+              const isChecked = selectedIds.includes(item.id);
               const fuCount = schedules.filter(s => s.whatsappNumber === item.whatsappNumber).length;
               return (
-                <button
+                <div
                   key={item.id}
                   id={`inbox-item-${item.id}`}
-                  onClick={() => handleSelectConversation(item)}
-                  className={`w-full text-left p-3 flex gap-2.5 hover:bg-gray-50/50 dark:hover:bg-zinc-800/20 transition-colors relative cursor-pointer ${
+                  className={`w-full flex items-center p-3 gap-1 hover:bg-gray-50/50 dark:hover:bg-zinc-800/20 transition-colors relative cursor-pointer ${
                     isSelected ? 'bg-emerald-50/30 dark:bg-emerald-950/20' : ''
-                  }`}
+                  } ${isChecked ? 'bg-emerald-50/20 dark:bg-emerald-950/10' : ''}`}
                 >
-                  {/* Unread dot */}
-                  {item.unread && (
-                    <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  )}
+                  {/* Selection Checkbox */}
+                  <button
+                    onClick={(e) => handleToggleSelect(e, item.id)}
+                    className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded transition-colors text-gray-300 dark:text-zinc-700 hover:text-emerald-500 shrink-0"
+                  >
+                    {isChecked ? <CheckSquare className="h-4 w-4 text-emerald-500" /> : <Square className="h-4 w-4" />}
+                  </button>
 
-                  {/* Profile circle icon */}
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                    item.unread
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/30'
-                      : 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400'
-                  }`}>
-                    {item.customerName.charAt(0).toUpperCase()}
-                  </div>
+                  <button
+                    onClick={() => handleSelectConversation(item)}
+                    className="flex-1 flex gap-2.5 min-w-0 text-left"
+                  >
+                    {/* Unread dot */}
+                    {item.unread && (
+                      <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                    )}
 
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className={`text-xs truncate flex items-center gap-1.5 ${item.unread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-zinc-200'}`}>
-                        <span className="truncate">{item.customerName}</span>
-                        {fuCount > 0 && (
-                          <span className="text-black dark:text-white font-bold tracking-widest text-[11px] shrink-0" title={`${fuCount} Follow Ups`}>
-                            {'●'.repeat(fuCount)}
+                    {/* Profile circle icon */}
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      item.unread
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/30'
+                        : 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400'
+                    }`}>
+                      {item.customerName.charAt(0).toUpperCase()}
+                    </div>
+
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className={`text-xs truncate flex items-center gap-1.5 ${item.unread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-zinc-200'}`}>
+                          <span className="truncate">{item.customerName}</span>
+                          {fuCount > 0 && (
+                            <span className="text-black dark:text-white font-bold tracking-widest text-[11px] shrink-0" title={`${fuCount} Follow Ups`}>
+                              {'●'.repeat(fuCount)}
+                            </span>
+                          )}
+                        </h4>
+                        <span className="text-[9px] text-gray-400 dark:text-zinc-500 font-mono font-medium">{item.timeAgo}</span>
+                      </div>
+                      <p className={`text-[11px] truncate mt-0.5 ${item.unread ? 'text-gray-800 dark:text-zinc-100 font-medium' : 'text-gray-500 dark:text-zinc-400'}`}>
+                        {item.lastMessage}
+                      </p>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[9px] text-gray-400 dark:text-zinc-500 font-mono">
+                          {item.whatsappNumber}
+                        </span>
+                        {currentUser?.role === 'Admin' && (
+                          <span className="text-[9px] bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-medium">
+                            Sales: {schedules.find((s) => s.whatsappNumber === item.whatsappNumber)?.salesName || '-'}
                           </span>
                         )}
-                      </h4>
-                      <span className="text-[9px] text-gray-400 dark:text-zinc-500 font-mono font-medium">{item.timeAgo}</span>
+                      </div>
                     </div>
-                    <p className={`text-[11px] truncate mt-0.5 ${item.unread ? 'text-gray-800 dark:text-zinc-100 font-medium' : 'text-gray-500 dark:text-zinc-400'}`}>
-                      {item.lastMessage}
-                    </p>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[9px] text-gray-400 dark:text-zinc-500 font-mono">
-                        {item.whatsappNumber}
-                      </span>
-                      {currentUser?.role === 'Admin' && (
-                        <span className="text-[9px] bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-medium">
-                          Sales: {schedules.find((s) => s.whatsappNumber === item.whatsappNumber)?.salesName || '-'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })
           )}
@@ -239,6 +299,44 @@ export const Inbox: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Bulk Action Toolbar */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-xs px-4"
+          >
+            <div className="bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl shadow-2xl border border-zinc-700/50 p-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 pl-2">
+                <button 
+                  onClick={() => setSelectedIds([])}
+                  className="p-1 hover:bg-zinc-800 rounded-full transition-colors"
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold leading-none">{selectedIds.length} Terpilih</span>
+                  <span className="text-[10px] text-gray-400">Pesan masuk</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex flex-col items-center gap-1 px-4 py-1.5 hover:bg-red-950/30 hover:text-red-400 rounded-xl transition-colors group"
+                  title="Hapus Terpilih"
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                  <span className="text-[9px] font-bold text-gray-400 group-hover:text-red-400">Hapus</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

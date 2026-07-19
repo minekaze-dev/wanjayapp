@@ -45,6 +45,8 @@ interface AppContextType {
   duplicateSchedule: (id: string) => void;
   pauseSchedule: (id: string) => void;
   deleteSchedule: (id: string) => void;
+  bulkUpdateSchedules: (ids: string[], updates: Partial<Schedule>) => void;
+  bulkDeleteSchedules: (ids: string[]) => void;
   generateSchedulesFromList: (config: {
     customersText: string;
     templateId: string;
@@ -73,6 +75,7 @@ interface AppContextType {
 
   // Inbox actions
   markInboxItemAsRead: (id: string) => void;
+  bulkDeleteInbox: (ids: string[]) => void;
 
   openWhatsApp: (number: string, name: string, message?: string) => void;
 
@@ -398,6 +401,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSchedules((prev) => prev.filter((s) => s.id !== id));
     supabase.from('schedules').delete().eq('id', id).then();
     showToast(`Schedule untuk ${target.customerName} berhasil dihapus`, 'info');
+  };
+
+  const bulkUpdateSchedules = (ids: string[], updates: Partial<Schedule>) => {
+    if (ids.length === 0) return;
+    
+    // Map status from Partial<Schedule> to DB column names if needed
+    // In this case, we only care about 'status' for bulk actions like pause/stop
+    const dbUpdates: any = {};
+    if (updates.status) dbUpdates.status = updates.status;
+    
+    setSchedules((prev) => prev.map((s) => ids.includes(s.id) ? { ...s, ...updates } : s));
+    supabase.from('schedules').update(dbUpdates).in('id', ids).then();
+    
+    showToast(`${ids.length} jadwal berhasil diperbarui`, 'success');
+  };
+
+  const bulkDeleteSchedules = (ids: string[]) => {
+    if (ids.length === 0) return;
+    
+    setSchedules((prev) => prev.filter((s) => !ids.includes(s.id)));
+    supabase.from('schedules').delete().in('id', ids).then();
+    
+    showToast(`${ids.length} jadwal berhasil dihapus`, 'info');
   };
 
   const addDays = (dateStr: string, days: number): string => {
@@ -766,6 +792,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const bulkDeleteInbox = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setInbox((prev) => prev.filter((item) => !ids.includes(item.id)));
+    supabase.from('inbox').delete().in('id', ids).then();
+    showToast(`${ids.length} pesan berhasil dihapus`, 'info');
+  };
+
   const openWhatsApp = (number: string, name: string, message?: string) => {
     showToast(`Opening WhatsApp to ${name} (${number})...`, 'info');
     // Open WA web link in a new tab helper, but without crashing or failing iframe limitations.
@@ -812,6 +845,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         duplicateSchedule,
         pauseSchedule,
         deleteSchedule,
+        bulkUpdateSchedules,
+        bulkDeleteSchedules,
         generateSchedulesFromList,
         addTemplate,
         updateTemplate,
@@ -822,6 +857,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteUser,
         pauseAllUserSchedules,
         markInboxItemAsRead,
+        bulkDeleteInbox,
         openWhatsApp,
         showToast,
         removeToast,

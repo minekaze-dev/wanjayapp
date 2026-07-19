@@ -53,8 +53,8 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen bg-gray-100 dark:bg-zinc-950 flex items-center justify-center">
-      <div id="app-workspace" className="flex h-full w-full max-w-[1380px] overflow-hidden bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 transition-colors duration-200 font-sans border-x border-gray-200/50 dark:border-zinc-800 shadow-2xl">
+    <div className="w-full h-screen bg-gray-100 dark:bg-zinc-950 flex">
+      <div id="app-workspace" className="flex h-full w-full overflow-hidden bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 transition-colors duration-200 font-sans shadow-2xl">
         {/* Small Sidebar Navigation */}
         <Sidebar />
 
