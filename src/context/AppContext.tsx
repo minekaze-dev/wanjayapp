@@ -74,8 +74,6 @@ interface AppContextType {
   // Inbox actions
   markInboxItemAsRead: (id: string) => void;
 
-  // Simulation
-  simulateReply: () => void;
   openWhatsApp: (number: string, name: string, message?: string) => void;
 
   // Toast
@@ -768,112 +766,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Simulations
-  const simulateReply = () => {
-    // Get all schedules that are 'Sent' or 'Pending' or even any customer
-    // Prefer schedules that are 'Sent' so it mimics real flow
-    const sentSchedules = schedules.filter((s) => s.status === 'Sent');
-    const targetSchedule = sentSchedules.length > 0
-      ? sentSchedules[Math.floor(Math.random() * sentSchedules.length)]
-      : schedules[Math.floor(Math.random() * schedules.length)];
-
-    if (!targetSchedule) {
-      showToast('Silakan buat schedule terlebih dahulu!', 'warning');
-      return;
-    }
-
-    // Check if we should stop future pending schedules for this customer
-    const shouldStopPending = schedules.some(
-      (s) => s.whatsappNumber === targetSchedule.whatsappNumber && s.stopIfReplied
-    );
-
-    // Set schedule status to 'Need Reply' and pause other pending ones if needed
-    setSchedules((prev) =>
-      prev.map((s) => {
-        if (s.id === targetSchedule.id) {
-          supabase.from('schedules').update({ status: 'Need Reply' }).eq('id', s.id).then();
-          return { ...s, status: 'Need Reply' };
-        }
-        if (shouldStopPending && s.whatsappNumber === targetSchedule.whatsappNumber && s.status === 'Pending') {
-          supabase.from('schedules').update({ status: 'Failed' }).eq('id', s.id).then();
-          return { ...s, status: 'Failed' };
-        }
-        return s;
-      })
-    );
-
-    if (shouldStopPending) {
-      const actualPendingCount = schedules.filter(
-        (s) => s.whatsappNumber === targetSchedule.whatsappNumber && s.status === 'Pending' && s.id !== targetSchedule.id
-      ).length;
-
-      if (actualPendingCount > 0) {
-        showToast(`Jadwal follow-up otomatis untuk ${targetSchedule.customerName} dihentikan karena ada respon baru.`, 'warning');
-        
-        const cancelAct: Activity = {
-          id: 'act_stop_' + Math.random().toString(36).substring(2, 9),
-          type: 'system',
-          content: `Jadwal follow-up otomatis (${actualPendingCount} pesan) untuk ${targetSchedule.customerName} dihentikan karena ada respon baru.`,
-          timestamp: 'Just now',
-        };
-        setActivities((prev) => [cancelAct, ...prev.slice(0, 49)]);
-    supabase.from('activities').insert({
-      type: cancelAct.type,
-      content: cancelAct.content,
-      timestamp: cancelAct.timestamp
-    }).then();
-      }
-    }
-
-    // Add inbox item
-    const possibleMessages = [
-      'Masih ada promo?',
-      'Boleh survey besok pagi?',
-      'Saya mau ambil paketnya ya. Caranya ganti bagaimana?',
-      'Tolong kirim brosur penawaran terbarunya ya mas.',
-      'Sore, mau tanya harga net-nya berapa?',
-      'Bisa cicilan tidak ya?',
-      'Oke, nanti saya kabari lagi sorean ya.',
-      'Bisa dikirim hari ini?',
-    ];
-    const randomMsg = possibleMessages[Math.floor(Math.random() * possibleMessages.length)];
-
-    const newInboxItem: InboxItem = {
-      id: 'i_sim_' + Math.random().toString(36).substring(2, 9),
-      customerName: targetSchedule.customerName,
-      whatsappNumber: targetSchedule.whatsappNumber,
-      lastMessage: randomMsg,
-      timeAgo: 'Just now',
-      timestamp: new Date(),
-      unread: true,
-    };
-
-    setInbox((prev) => [newInboxItem, ...prev]);
-    supabase.from('inbox').insert({
-      customer_name: newInboxItem.customerName,
-      whatsapp_number: newInboxItem.whatsappNumber,
-      last_message: newInboxItem.lastMessage,
-      time_ago: newInboxItem.timeAgo,
-      unread: newInboxItem.unread
-    }).then();
-
-    // Activity
-    const newAct: Activity = {
-      id: 'act_' + Math.random().toString(36).substring(2, 9),
-      type: 'reply',
-      content: `Customer ${targetSchedule.customerName} membalas: "${randomMsg}"`,
-      timestamp: 'Just now',
-    };
-    setActivities((prev) => [newAct, ...prev.slice(0, 49)]);
-    supabase.from('activities').insert({
-      type: newAct.type,
-      content: newAct.content,
-      timestamp: newAct.timestamp
-    }).then();
-
-    showToast(`Pesan masuk dari ${targetSchedule.customerName}!`, 'info');
-  };
-
   const openWhatsApp = (number: string, name: string, message?: string) => {
     showToast(`Opening WhatsApp to ${name} (${number})...`, 'info');
     // Open WA web link in a new tab helper, but without crashing or failing iframe limitations.
@@ -930,7 +822,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteUser,
         pauseAllUserSchedules,
         markInboxItemAsRead,
-        simulateReply,
         openWhatsApp,
         showToast,
         removeToast,

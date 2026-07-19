@@ -32,7 +32,7 @@ app.use(express.json());
 // --- WhatsApp Client Management ---
 // To avoid excessive memory usage, we manage clients per user ID
 interface WAClientData {
-  client: Client;
+  client: any;
   status: 'disconnected' | 'qr' | 'connected' | 'reconnecting';
   qrDataUrl: string | null;
 }

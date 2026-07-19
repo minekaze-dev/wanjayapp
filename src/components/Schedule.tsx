@@ -479,7 +479,7 @@ export const Schedule: React.FC = () => {
         {/* Table footer / count info */}
         <div className="p-2 border-t border-gray-100 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/30 text-[10px] text-gray-400 dark:text-zinc-500 font-semibold flex justify-between items-center px-4">
           <span>Menampilkan {filteredSchedules.length} dari {schedules.length} total schedules</span>
-          <span>Simulasi Database: LocalStorage Terkoneksi</span>
+          <span>Database: Supabase Cloud Terkoneksi</span>
         </div>
       </div>
 

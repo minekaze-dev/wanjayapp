@@ -19,20 +19,6 @@ export const Login: React.FC = () => {
     }, 400);
   };
 
-  const handleQuickLogin = (code: string) => {
-    const safeCode = code || '';
-    setAccessCode(safeCode);
-    setLoading(true);
-    setTimeout(() => {
-      login(safeCode);
-      setLoading(false);
-    }, 400);
-  };
-
-  // Find Admin and Egi in state if available, or fall back to code strings
-  const adminUser = users.find(u => u.role === 'Admin' && u.accessCode) || { name: 'Admin', accessCode: 'ADMIN123' };
-  const salesUser = users.find(u => (u.name === 'Egi' || u.id === 'u2') && u.accessCode) || users.find(u => u.role === 'Sales' && u.accessCode) || { name: 'Egi', accessCode: 'EGI777' };
-
   const logoSrc = theme === 'dark' ? 'https://imgur.com/u0qx75f.jpg' : 'https://imgur.com/EAZvDdi.jpg';
 
   // Floating background chat bubbles

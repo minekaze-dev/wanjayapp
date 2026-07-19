@@ -284,7 +284,7 @@ export const Settings: React.FC = () => {
               Tentang WA-NJAY MVP
             </h3>
             <p className="text-[11px] text-gray-600 dark:text-zinc-400 leading-relaxed">
-              WA-NJAY dirancang khusus sebagai asisten follow-up WhatsApp internal tim sales. Versi MVP ini memanfaatkan simulasi database yang disimpan sepenuhnya di dalam browser Anda (LocalStorage). Struktur database dan visual UI dipisahkan secara modular, sehingga siap dihubungkan langsung ke sistem Supabase dan integrasi whatsapp-web.js kapan saja.
+              WA-NJAY dirancang khusus sebagai asisten follow-up WhatsApp internal tim sales. Versi ini terintegrasi langsung dengan database Supabase dan layanan whatsapp-web.js untuk sinkronisasi data secara real-time dan pengiriman pesan otomatis.
             </p>
           </div>
 

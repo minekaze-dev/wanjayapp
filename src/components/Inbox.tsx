@@ -87,7 +87,7 @@ export const Inbox: React.FC = () => {
             <div className="text-center py-12 px-4">
               <InboxIcon className="h-8 w-8 mx-auto text-gray-300 dark:text-zinc-700 mb-2" />
               <p className="text-xs text-gray-400 dark:text-zinc-500 font-semibold">Tidak ada chat balasan.</p>
-              <p className="text-[10px] text-gray-400 dark:text-zinc-600 mt-1">Tekan "Simulate Reply" di bagian atas untuk mensimulasikan pesan masuk.</p>
+              <p className="text-[10px] text-gray-400 dark:text-zinc-600 mt-1">Chat balasan dari customer akan otomatis muncul di sini saat terdeteksi oleh sistem.</p>
             </div>
           ) : (
             filteredInbox.map((item) => {

@@ -1,40 +1,9 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Play, Link2, Link2Off, RefreshCw, Sun, Moon, LogOut } from 'lucide-react';
+import { Link2, Link2Off, RefreshCw, Sun, Moon, LogOut } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { activeTab, currentUser, simulateReply, showToast, theme, setTheme, updateUser, logout, askConfirmation } = useApp();
-
-  const handleSimulateReply = () => {
-    simulateReply();
-  };
-
-  const cycleWhatsAppStatus = () => {
-    if (!currentUser) {
-      showToast('Harap login terlebih dahulu!', 'warning');
-      return;
-    }
-    let nextStatus: 'connected' | 'reconnecting' | 'disconnected' = 'connected';
-    if (currentUser.whatsappStatus === 'connected') {
-      nextStatus = 'reconnecting';
-    } else if (currentUser.whatsappStatus === 'reconnecting') {
-      nextStatus = 'disconnected';
-    } else {
-      nextStatus = 'connected';
-    }
-
-    updateUser({
-      ...currentUser,
-      whatsappStatus: nextStatus,
-    });
-
-    const statusNames = {
-      connected: 'Connected',
-      reconnecting: 'Reconnecting',
-      disconnected: 'Disconnected'
-    };
-    showToast(`Status WhatsApp disimulasikan: ${statusNames[nextStatus]}`, 'info');
-  };
+  const { activeTab, currentUser, showToast, theme, setTheme, updateUser, logout, askConfirmation } = useApp();
 
   const handleLogout = () => {
     askConfirmation({
@@ -98,10 +67,8 @@ export const Header: React.FC = () => {
         </button>
 
         {/* WhatsApp Status Indicator */}
-        <button
-          onClick={cycleWhatsAppStatus}
-          title="Klik untuk mensimulasikan status koneksi WhatsApp"
-          className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 rounded-full border border-gray-200 hover:border-gray-300 dark:border-zinc-800 dark:hover:border-zinc-700 bg-gray-50/50 dark:bg-zinc-900/50 transition-all cursor-pointer group h-7 sm:h-8"
+        <div
+          className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 h-7 sm:h-8"
         >
           <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
             currentUser?.whatsappStatus === 'connected'
@@ -120,19 +87,7 @@ export const Header: React.FC = () => {
                 : 'Err'
             }
           </span>
-          <RefreshCw className="h-2.5 w-2.5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-zinc-300 transition-colors shrink-0" />
-        </button>
-
-        {/* Simulate Reply (Auto Reply Detector) */}
-        <button
-          onClick={handleSimulateReply}
-          id="btn-simulate-reply"
-          className="flex items-center gap-1 py-1 px-1.5 sm:px-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold text-[9px] sm:text-[10px] rounded transition-colors cursor-pointer h-7 sm:h-8 shadow-sm"
-          title="Simulate incoming WhatsApp message to test follow up logic"
-        >
-          <Play className="h-2.5 w-2.5 fill-current shrink-0" />
-          <span className="hidden xs:inline">Simulate</span>
-        </button>
+        </div>
 
         {/* Mobile Quick Logout */}
         <button
