@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
@@ -27,6 +28,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 
 // --- WhatsApp Client Management ---
@@ -53,7 +55,7 @@ async function getOrCreateClient(userId: string) {
 
   const clientData: WAClientData = {
     client,
-    status: 'disconnected',
+    status: 'reconnecting',
     qrDataUrl: null,
   };
   waClients.set(userId, clientData);
@@ -109,8 +111,10 @@ async function getOrCreateClient(userId: string) {
     }
   });
 
-  clientData.status = 'reconnecting';
-  client.initialize().catch(err => {
+  console.log(`[WA-${userId}] Initializing client...`);
+  client.initialize().then(() => {
+    console.log(`[WA-${userId}] Initialization call finished`);
+  }).catch(err => {
     console.error(`[WA-${userId}] Init failed`, err);
     clientData.status = 'disconnected';
   });
@@ -181,11 +185,20 @@ setInterval(async () => {
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
 
-    const { data: dueSchedules } = await supabase
+    console.log("===== CRON =====");
+    console.log("Date :", dateStr);
+    console.log("Time :", timeStr);
+
+    const { data: dueSchedules, error } = await supabase
       .from('schedules')
       .select('*')
       .eq('status', 'Pending')
       .eq('date', dateStr);
+
+    if (error) {
+      console.log("Error fetching schedules:", error);
+    }
+    console.log("Found schedules:", dueSchedules?.length || 0);
 
     if (dueSchedules) {
       for (const schedule of dueSchedules) {
@@ -193,6 +206,8 @@ setInterval(async () => {
           const userId = schedule.sales_id;
           const clientData = waClients.get(userId);
           
+          console.log(`Checking schedule ${schedule.id} for user ${userId}. WA Status: ${clientData?.status}`);
+
           if (clientData && clientData.status === 'connected') {
             try {
               // mark sending
@@ -211,10 +226,14 @@ setInterval(async () => {
                 content: `Pesan ke ${schedule.customer_name} berhasil dikirim.`,
                 timestamp: new Date().toISOString()
               });
+              console.log(`Successfully sent message for schedule ${schedule.id}`);
               
             } catch (err: any) {
+              console.error(`Failed to send message for schedule ${schedule.id}:`, err);
               await supabase.from('schedules').update({ status: 'Failed' }).eq('id', schedule.id);
             }
+          } else {
+            console.log(`Skipping schedule ${schedule.id} because WhatsApp is not connected for user ${userId}`);
           }
         }
       }
